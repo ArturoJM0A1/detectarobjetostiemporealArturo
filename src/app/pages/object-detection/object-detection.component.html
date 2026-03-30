@@ -1,0 +1,132 @@
+<section class="detector-shell">
+  <mat-card class="detector-panel">
+    <div class="panel-copy">
+      <p class="eyebrow">Vision AI</p>
+      <h2>Detecta objetos desde imagen o webcam</h2>
+      <p class="lead">
+        Cambia entre una foto puntual y un flujo en vivo. Cada resultado muestra su
+        porcentaje de confianza para que la lectura sea inmediata.
+      </p>
+    </div>
+
+    <div class="mode-switch" role="tablist" aria-label="Modo de detección">
+      <button
+        type="button"
+        class="mode-chip"
+        [class.is-active]="detectionMode() === 'camera'"
+        (click)="setMode('camera')"
+      >
+        <mat-icon>videocam</mat-icon>
+        Cámara en vivo
+      </button>
+
+      <button
+        type="button"
+        class="mode-chip"
+        [class.is-active]="detectionMode() === 'image'"
+        (click)="setMode('image')"
+      >
+        <mat-icon>photo_library</mat-icon>
+        Subir imagen
+      </button>
+    </div>
+
+    <div class="status-row" [class.has-error]="!!cameraError() && detectionMode() === 'camera'">
+      <span
+        class="status-dot"
+        [class.is-live]="detectionMode() === 'camera' && isLiveDetection()"
+        [class.is-error]="!!cameraError() && detectionMode() === 'camera'"
+      ></span>
+      <p>{{ detectionMode() === 'camera' ? cameraStatus() : imageStatus() }}</p>
+    </div>
+
+    @if (detectionMode() === 'camera') {
+      <div class="preview-stage" [class.is-empty]="!webcamActive()">
+        @if (webcamActive()) {
+          <video #liveVideo class="preview-media" autoplay muted playsinline></video>
+          <span class="live-badge">Detección en vivo</span>
+        } @else {
+          <div class="empty-state">
+            <mat-icon>photo_camera</mat-icon>
+            <h3>Listo para analizar tu entorno</h3>
+            <p>
+              Enciende la webcam y el modelo empezará a clasificar objetos en tiempo real.
+            </p>
+            <small>La cámara funciona mejor en localhost o en sitios HTTPS.</small>
+          </div>
+        }
+      </div>
+
+      <div class="action-row">
+        <button mat-flat-button color="primary" (click)="startCamera()" [disabled]="isStartingCamera()">
+          <mat-icon>{{ webcamActive() ? 'autorenew' : 'videocam' }}</mat-icon>
+          {{ webcamActive() ? 'Reanudar detección' : 'Activar cámara' }}
+        </button>
+
+        @if (webcamActive()) {
+          <button mat-stroked-button type="button" (click)="stopCamera()" [disabled]="isStartingCamera()">
+            <mat-icon>videocam_off</mat-icon>
+            Detener cámara
+          </button>
+        }
+      </div>
+    } @else {
+      <div class="preview-stage" [class.is-empty]="!previewSrc()">
+        <input
+          #imageUpload
+          hidden
+          type="file"
+          accept="image/*"
+          (change)="handleImageUpload($any($event.target).files?.[0])"
+        />
+
+        @if (previewSrc()) {
+          <img [src]="previewSrc()" alt="Vista previa para detección" class="preview-media" />
+        } @else {
+          <div class="empty-state">
+            <mat-icon>add_photo_alternate</mat-icon>
+            <h3>Sube una imagen para clasificarla</h3>
+            <p>
+              El modelo te devolverá las clases más probables con su porcentaje de confianza.
+            </p>
+          </div>
+        }
+      </div>
+
+      <div class="action-row">
+        <button mat-flat-button color="primary" type="button" (click)="imageUpload.click()">
+          <mat-icon>upload</mat-icon>
+          {{ file() ? 'Cambiar imagen' : 'Seleccionar imagen' }}
+        </button>
+
+        <button mat-stroked-button type="button" (click)="predictImage()" [disabled]="!canPredictImage()">
+          <mat-icon>image_search</mat-icon>
+          Detectar objetos
+        </button>
+      </div>
+    }
+
+    @if (isModelLoading() || isStartingCamera() || (detectionMode() === 'image' && isPredicting())) {
+      <div class="loading-row">
+        <mat-spinner diameter="32"></mat-spinner>
+        <span>{{ detectionMode() === 'camera' ? cameraStatus() : imageStatus() }}</span>
+      </div>
+    }
+  </mat-card>
+
+  <app-prediction-list
+    [predictions]="predictions()"
+    [headline]="detectionMode() === 'camera' ? 'Detección en tiempo real con cámara' : 'Resultados de la imagen'"
+    [subheadline]="
+      detectionMode() === 'camera'
+        ? 'Las etiquetas se actualizan automáticamente mientras la cámara está activa.'
+        : 'Las mejores coincidencias del modelo para la imagen seleccionada.'
+    "
+    [emptyLabel]="
+      detectionMode() === 'camera'
+        ? 'Activa la cámara para empezar a ver objetos detectados.'
+        : 'Selecciona una imagen y lanza la detección para ver resultados.'
+    "
+    [isLive]="detectionMode() === 'camera' && isLiveDetection()"
+  />
+</section>

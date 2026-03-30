@@ -1,0 +1,123 @@
+:host {
+  display: block;
+}
+
+.prediction-card {
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top right, rgba(255, 188, 128, 0.22), transparent 30%),
+    linear-gradient(180deg, #16212b 0%, #1b2a36 100%);
+  color: #fff6ed;
+  box-shadow: 0 28px 80px rgba(19, 29, 38, 0.22);
+}
+
+.prediction-card mat-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.5rem;
+}
+
+.prediction-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.eyebrow {
+  margin: 0;
+  color: #f2b876;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.prediction-card mat-card-title {
+  margin: 0;
+  color: #fffaf4;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.prediction-card mat-card-subtitle {
+  color: rgba(255, 246, 237, 0.76);
+}
+
+.live-pill {
+  align-self: flex-start;
+  border-radius: 999px;
+  background: rgba(240, 92, 59, 0.16);
+  border: 1px solid rgba(240, 92, 59, 0.4);
+  padding: 0.4rem 0.7rem;
+  color: #ffd5c9;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.prediction-list {
+  padding-top: 0;
+}
+
+.prediction-item {
+  display: block;
+  height: auto !important;
+  padding: 0.95rem 0 1rem !important;
+}
+
+.prediction-item + .prediction-item {
+  border-top: 1px solid rgba(255, 246, 237, 0.1);
+}
+
+.prediction-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.prediction-label {
+  color: #fffaf4;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.prediction-confidence {
+  flex: 0 0 auto;
+  color: #f8c46f;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.prediction-meter {
+  margin-top: 0.7rem;
+  height: 0.65rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.prediction-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #f7c36a 0%, #f05c3b 100%);
+}
+
+.empty-card {
+  margin: 0 1rem 1rem;
+  border-radius: 20px;
+  border: 1px dashed rgba(255, 246, 237, 0.22);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 1.2rem 1rem;
+}
+
+.empty-card p {
+  margin: 0;
+  color: rgba(255, 246, 237, 0.8);
+  line-height: 1.6;
+}

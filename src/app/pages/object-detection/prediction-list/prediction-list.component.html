@@ -1,0 +1,36 @@
+<mat-card class="prediction-card">
+  <mat-card-header>
+    <div class="prediction-head">
+      <p class="eyebrow">Resultados</p>
+      <mat-card-title>{{ headline() }}</mat-card-title>
+      <mat-card-subtitle>{{ subheadline() }}</mat-card-subtitle>
+    </div>
+
+    @if (isLive()) {
+      <span class="live-pill">En vivo</span>
+    }
+  </mat-card-header>
+
+  @if (predictions().length > 0) {
+    <mat-list class="prediction-list">
+      @for (prediction of predictions(); track prediction.className) {
+        <mat-list-item class="prediction-item">
+          <div class="prediction-row">
+            <span class="prediction-label">{{ prediction.className }}</span>
+            <span class="prediction-confidence">
+              ({{ prediction.probability | percent:'1.0-0' }})
+            </span>
+          </div>
+
+          <div class="prediction-meter" aria-hidden="true">
+            <span [style.width]="confidenceWidth(prediction.probability)"></span>
+          </div>
+        </mat-list-item>
+      }
+    </mat-list>
+  } @else {
+    <div class="empty-card">
+      <p>{{ emptyLabel() }}</p>
+    </div>
+  }
+</mat-card>
