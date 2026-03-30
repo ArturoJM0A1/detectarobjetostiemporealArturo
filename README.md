@@ -10,9 +10,23 @@ Permite trabajar de dos formas:
 Cada resultado incluye el porcentaje de confianza, por ejemplo:
 
 - `Persona (98%)`
-- `Perro (87%)`
+- `Lapicero (87%)`
+- `Montaña (64%)`
 
 Tambien funciona como PWA, por lo que puede instalarse y recibir actualizaciones mediante service worker en modo produccion.
+
+# Proyecto inspirado en 
+
+Este proyecto toma como base el trabajo: https://github.com/domini-code/midudev-pwa
+- [Repositorio midudev-pwa](https://github.com/domini-code/midudev-pwa)  
+- Autor: **DOMINICODE** y **midudev**
+
+
+# Ver demostración
+
+Puedes ver una demostración del proyecto en el siguiente video:
+
+[![Ver demo en YouTube](https://img.youtube.com/vi/Y5zaSOqqMcM/0.jpg)](https://youtu.be/Y5zaSOqqMcM)
 
 ## Caracteristicas
 
@@ -160,7 +174,7 @@ Para probar el service worker y el comportamiento PWA necesitas servir el build 
 npm run build
 ```
 
-2. Sirve la carpeta compilada:
+2. **Sirve la carpeta compilada:**
 
 ```bash
 npx http-server -p 8082 -c-1 dist/angular-pwa/browser
