@@ -131,7 +131,7 @@ npm run build
 Genera la aplicacion optimizada en:
 
 ```text
-dist/midudev-pwa
+dist/angular-pwa
 ```
 
 ### Lint
@@ -163,7 +163,7 @@ npm run build
 2. Sirve la carpeta compilada:
 
 ```bash
-npx http-server -p 8080 -c-1 dist/midudev-pwa/browser
+npx http-server -p 8082 -c-1 dist/angular-pwa/browser
 ```
 
 3. Abre:

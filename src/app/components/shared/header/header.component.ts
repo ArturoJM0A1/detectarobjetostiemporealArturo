@@ -12,5 +12,5 @@ import { MatToolbarModule } from '@angular/material/toolbar';
   `,
 })
 export class HeaderComponent {
-  title = input<string>('Midudev Academia');
+  title = input<string>('angular Academia');
 }

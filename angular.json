@@ -3,7 +3,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "midudev-pwa": {
+    "angular-pwa": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -17,7 +17,7 @@
         "build": {
           "builder": "@angular-devkit/build-angular:application",
           "options": {
-            "outputPath": "dist/midudev-pwa",
+            "outputPath": "dist/angular-pwa",
             "index": "src/index.html",
             "browser": "src/main.ts",
             "polyfills": [
@@ -74,10 +74,10 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "midudev-pwa:build:production"
+              "buildTarget": "angular-pwa:build:production"
             },
             "development": {
-              "buildTarget": "midudev-pwa:build:development"
+              "buildTarget": "angular-pwa:build:development"
             }
           },
           "defaultConfiguration": "development"
