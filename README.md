@@ -13,6 +13,8 @@ Cada resultado incluye el porcentaje de confianza, por ejemplo:
 - `Lapicero (87%)`
 - `Montaña (64%)`
 
+![alt text](<Screenshot 2026-04-02 022625.png>)
+
 Tambien funciona como PWA, por lo que puede instalarse y recibir actualizaciones mediante service worker en modo produccion.
 
 # Proyecto inspirado en 
