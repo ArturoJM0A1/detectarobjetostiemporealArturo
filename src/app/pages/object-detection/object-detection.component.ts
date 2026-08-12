@@ -13,11 +13,21 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { cleanClassName } from '@pages/object-detection/models/label.util';
 import { Prediction } from '@pages/object-detection/models/prediction.interface';
 import { PredictionListComponent } from '@pages/object-detection/prediction-list/prediction-list.component';
 import { ObjectDetectionService } from './object-detection.service';
 
 type DetectionMode = 'camera' | 'image';
+
+export interface BoundingBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  label: string;
+  confidence: number;
+}
 
 @Component({
   selector: 'app-object-detection',
@@ -38,6 +48,11 @@ export class ObjectDetectionComponent {
   private _liveFrameId: number | null = null;
   private _livePredictionPending = false;
   private _previewObjectUrl: string | null = null;
+  private _overlayObserver: ResizeObserver | null = null;
+  private _detections: BoundingBox[] = [];
+  private _fpsEma = 0;
+  private _lastFrameAt = 0;
+  private _fpsSampleAt = 0;
 
   readonly detectionMode = signal<DetectionMode>('camera');
   readonly predictions = signal<Prediction[]>([]);
@@ -47,11 +62,16 @@ export class ObjectDetectionComponent {
   readonly cameraError = signal<string | null>(null);
   readonly isStartingCamera = signal(false);
   readonly isLiveDetection = signal(false);
+  readonly isDragging = signal(false);
+  readonly fps = signal<number | null>(null);
   readonly supportsCamera = signal(
     typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia,
   );
 
   readonly liveVideo = viewChild<ElementRef<HTMLVideoElement>>('liveVideo');
+  readonly overlayCanvas = viewChild<ElementRef<HTMLCanvasElement>>('overlay');
+  readonly imageUpload = viewChild<ElementRef<HTMLInputElement>>('imageUpload');
+
   readonly webcamActive = computed(() => this.cameraStream() !== null);
   readonly modelReady = this._objectDetectionService.hasModel;
   readonly isPredicting = this._objectDetectionService.isPredicting;
@@ -59,45 +79,61 @@ export class ObjectDetectionComponent {
   readonly canPredictImage = computed(
     () => !!this.previewSrc() && this.modelReady() && !this.isPredicting(),
   );
-  readonly cameraStatus = computed(() => {
-    if (this.cameraError()) {
-      return this.cameraError();
+  readonly status = computed(() => {
+    if (this.detectionMode() === 'camera') {
+      if (this.cameraError()) {
+        return { tone: 'error' as const, label: this.cameraError() };
+      }
+
+      if (this.isStartingCamera()) {
+        return { tone: 'busy' as const, label: 'Solicitando permiso de cámara…' };
+      }
+
+      if (this.isModelLoading()) {
+        return { tone: 'busy' as const, label: 'Cargando modelo de visión…' };
+      }
+
+      if (this.isLiveDetection()) {
+        const fpsLabel =
+          this.fps() !== null ? `Procesando a ${this.fps()} FPS` : 'Procesando en tiempo real';
+        return { tone: 'live' as const, label: `Cámara activa · ${fpsLabel}` };
+      }
+
+      if (this.webcamActive()) {
+        return { tone: 'ready' as const, label: 'Cámara lista para analizar' };
+      }
+
+      return { tone: 'idle' as const, label: 'La cámara está apagada' };
     }
 
-    if (this.isStartingCamera()) {
-      return 'Solicitando permiso de cámara...';
-    }
-
-    if (this.isModelLoading()) {
-      return 'Cargando el modelo de detección...';
-    }
-
-    if (this.isLiveDetection()) {
-      return 'Detección en tiempo real con cámara';
-    }
-
-    if (this.webcamActive()) {
-      return 'Cámara lista para analizar objetos en vivo';
-    }
-
-    return 'Activa la cámara para detectar objetos en tiempo real.';
-  });
-  readonly imageStatus = computed(() => {
     if (this.isPredicting()) {
-      return 'Analizando la imagen seleccionada...';
+      return { tone: 'busy' as const, label: 'Analizando imagen…' };
     }
 
     if (this.previewSrc()) {
-      return this.modelReady()
-        ? 'Imagen lista para detectar objetos.'
-        : 'Imagen lista. Esperando a que el modelo termine de cargar.';
+      return { tone: 'ready' as const, label: 'Imagen lista · pulsa "Detectar objetos"' };
     }
 
-    return 'Sube una imagen y verás resultados con porcentaje de confianza.';
+    return {
+      tone: 'idle' as const,
+      label: 'Arrastra una imagen aquí o haz clic para subirla',
+    };
   });
 
   constructor() {
     void this._objectDetectionService.loadModel();
+
+    effect(() => {
+      const canvas = this.overlayCanvas()?.nativeElement;
+
+      if (canvas && !this._overlayObserver && typeof ResizeObserver !== 'undefined') {
+        const host = canvas.parentElement;
+        if (host) {
+          this._overlayObserver = new ResizeObserver(() => this._renderOverlay());
+          this._overlayObserver.observe(host);
+        }
+      }
+    });
 
     effect(() => {
       const video = this.liveVideo()?.nativeElement;
@@ -120,6 +156,7 @@ export class ObjectDetectionComponent {
     });
 
     this._destroyRef.onDestroy(() => {
+      this._overlayObserver?.disconnect();
       this.stopCamera();
       this.revokePreviewUrl();
     });
@@ -133,6 +170,9 @@ export class ObjectDetectionComponent {
     this.detectionMode.set(mode);
     this.predictions.set([]);
     this.cameraError.set(null);
+    this.fps.set(null);
+    this._detections = [];
+    this._renderOverlay();
 
     if (mode === 'image') {
       this.stopCamera();
@@ -142,8 +182,8 @@ export class ObjectDetectionComponent {
     this.clearImageSelection();
   }
 
-  handleImageUpload(file: File | undefined): void {
-    if (!file) {
+  handleImageUpload(file: File): void {
+    if (!file.type.startsWith('image/')) {
       return;
     }
 
@@ -152,11 +192,51 @@ export class ObjectDetectionComponent {
     this.file.set(file);
     this.predictions.set([]);
     this.cameraError.set(null);
+    this.fps.set(null);
+    this._detections = [];
 
     this.revokePreviewUrl();
     const objectUrl = URL.createObjectURL(file);
     this._previewObjectUrl = objectUrl;
     this.previewSrc.set(objectUrl);
+    this._renderOverlay();
+  }
+
+  onFilePicked(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (file) {
+      this.handleImageUpload(file);
+    }
+    input.value = '';
+  }
+
+  onStageClick(): void {
+    if (this.detectionMode() === 'image' && !this.previewSrc() && !this.isPredicting()) {
+      this.imageUpload()?.nativeElement.click();
+    }
+  }
+
+  onDragOver(event: DragEvent): void {
+    event.preventDefault();
+    if (event.dataTransfer && Array.from(event.dataTransfer.types).includes('Files')) {
+      this.isDragging.set(true);
+    }
+  }
+
+  onDragLeave(event: DragEvent): void {
+    if (!this._isOverChild(event)) {
+      this.isDragging.set(false);
+    }
+  }
+
+  onDrop(event: DragEvent): void {
+    event.preventDefault();
+    this.isDragging.set(false);
+    const file = event.dataTransfer?.files?.[0];
+    if (file) {
+      this.handleImageUpload(file);
+    }
   }
 
   async startCamera(): Promise<void> {
@@ -204,6 +284,9 @@ export class ObjectDetectionComponent {
     }
 
     this.cameraStream.set(null);
+    this.fps.set(null);
+    this._detections = [];
+    this._renderOverlay();
   }
 
   async predictImage(): Promise<void> {
@@ -216,6 +299,12 @@ export class ObjectDetectionComponent {
     const predictions = await this._objectDetectionService.predict(image);
 
     this.predictions.set(predictions);
+    this._renderOverlay();
+  }
+
+  drawDetections(detections: BoundingBox[]): void {
+    this._detections = detections;
+    this._renderOverlay();
   }
 
   private startLiveDetection(): void {
@@ -264,10 +353,14 @@ export class ObjectDetectionComponent {
     }
 
     this._livePredictionPending = true;
+    this._tickFps();
 
     try {
-      const predictions = await this._objectDetectionService.predict(video, { trackBusy: false });
+      const predictions = await this._objectDetectionService.predict(video, {
+        trackBusy: false,
+      });
       this.predictions.set(predictions);
+      this._renderOverlay();
     } catch (error) {
       console.error('Error detecting live frame', error);
       this.cameraError.set('No se pudo analizar la señal de la cámara.');
@@ -285,6 +378,8 @@ export class ObjectDetectionComponent {
     this.file.set(null);
     this.previewSrc.set(null);
     this.revokePreviewUrl();
+    this._detections = [];
+    this._renderOverlay();
   }
 
   private revokePreviewUrl(): void {
@@ -319,5 +414,160 @@ export class ObjectDetectionComponent {
     }
 
     return 'No pudimos iniciar la cámara en este momento.';
+  }
+
+  private _tickFps(): void {
+    const now = performance.now();
+
+    if (this._lastFrameAt > 0) {
+      const delta = (now - this._lastFrameAt) / 1000;
+      if (delta > 0) {
+        const instant = 1 / delta;
+        this._fpsEma = this._fpsEma === 0 ? instant : this._fpsEma * 0.7 + instant * 0.3;
+      }
+    }
+
+    this._lastFrameAt = now;
+
+    if (now - this._fpsSampleAt >= 500) {
+      this.fps.set(Math.round(this._fpsEma));
+      this._fpsSampleAt = now;
+    }
+  }
+
+  private _renderOverlay(): void {
+    const canvas = this.overlayCanvas()?.nativeElement;
+    if (!canvas) {
+      return;
+    }
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      return;
+    }
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const width = canvas.clientWidth || 0;
+    const height = canvas.clientHeight || 0;
+
+    if (width === 0 || height === 0) {
+      return;
+    }
+
+    const scaledWidth = Math.round(width * dpr);
+    const scaledHeight = Math.round(height * dpr);
+
+    if (canvas.width !== scaledWidth) {
+      canvas.width = scaledWidth;
+    }
+    if (canvas.height !== scaledHeight) {
+      canvas.height = scaledHeight;
+    }
+
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    context.clearRect(0, 0, width, height);
+
+    this._drawDetections(context, width, height);
+
+    const top = this.predictions()[0];
+    if (top) {
+      this._drawHud(context, top, width, height);
+    }
+  }
+
+  private _drawDetections(
+    context: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+  ): void {
+    for (const box of this._detections) {
+      const x = box.x * width;
+      const y = box.y * height;
+      const boxWidth = box.width * width;
+      const boxHeight = box.height * height;
+
+      context.beginPath();
+      context.rect(x, y, boxWidth, boxHeight);
+      context.strokeStyle = '#7c5cff';
+      context.lineWidth = 2;
+      context.stroke();
+
+      const label = `${cleanClassName(box.label)} ${Math.round(box.confidence * 100)}%`;
+      context.font = '600 12px Inter, sans-serif';
+      const textWidth = context.measureText(label).width;
+      const paddingX = 8;
+      const chipHeight = 24;
+      const chipY = Math.max(0, y - chipHeight - 4);
+
+      this._traceRoundedRect(context, x, chipY, textWidth + paddingX * 2, chipHeight, 6);
+      context.fillStyle = 'rgba(124, 92, 255, 0.9)';
+      context.fill();
+      context.fillStyle = '#ffffff';
+      context.textBaseline = 'middle';
+      context.fillText(label, x + paddingX, chipY + chipHeight / 2 + 1);
+    }
+  }
+
+  private _drawHud(
+    context: CanvasRenderingContext2D,
+    prediction: Prediction,
+    width: number,
+    height: number,
+  ): void {
+    const label = cleanClassName(prediction.className);
+    const percent = Math.round(prediction.probability * 100);
+    const text = `${label}  ·  ${percent}% de confianza`;
+
+    context.font = '600 13px Inter, sans-serif';
+    const textWidth = context.measureText(text).width;
+    const paddingX = 14;
+    const chipHeight = 34;
+    const radius = 12;
+    const margin = 14;
+    const chipWidth = textWidth + paddingX * 2;
+    const chipX = margin;
+    const chipY = height - chipHeight - margin;
+
+    this._traceRoundedRect(context, chipX, chipY, chipWidth, chipHeight, radius);
+    context.fillStyle = 'rgba(7, 10, 21, 0.78)';
+    context.fill();
+    context.strokeStyle = 'rgba(148, 163, 255, 0.4)';
+    context.lineWidth = 1;
+    context.stroke();
+
+    context.fillStyle = '#f2f4ff';
+    context.textBaseline = 'middle';
+    context.fillText(text, chipX + paddingX, chipY + chipHeight / 2 + 1);
+  }
+
+  private _traceRoundedRect(
+    context: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    radius: number,
+  ): void {
+    context.beginPath();
+    context.moveTo(x + radius, y);
+    context.lineTo(x + width - radius, y);
+    context.arcTo(x + width, y, x + width, y + radius, radius);
+    context.lineTo(x + width, y + height - radius);
+    context.arcTo(x + width, y + height, x + width - radius, y + height, radius);
+    context.lineTo(x + radius, y + height);
+    context.arcTo(x, y + height, x, y + height - radius, radius);
+    context.lineTo(x, y + radius);
+    context.arcTo(x, y, x + radius, y, radius);
+    context.closePath();
+  }
+
+  private _isOverChild(event: DragEvent): boolean {
+    const current = event.currentTarget;
+    if (!(current instanceof HTMLElement)) {
+      return false;
+    }
+
+    const related = event.relatedTarget as Node | null;
+    return !!related && current.contains(related);
   }
 }

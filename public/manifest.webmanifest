@@ -1,8 +1,8 @@
 {
-  "name": "angular-pwa",
-  "short_name": "angular-pwa",
-  "theme_color": "#1976d2",
-  "background_color": "#fafafa",
+  "name": "Detector de Objetos PWA",
+  "short_name": "Detector AI",
+  "theme_color": "#05070f",
+  "background_color": "#05070f",
   "display": "standalone",
   "scope": "./",
   "start_url": "./",

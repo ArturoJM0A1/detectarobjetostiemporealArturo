@@ -1,340 +1,108 @@
 # Detector de Objetos PWA en tiempo real
 
-Aplicacion web construida con Angular 19, Angular Material y TensorFlow.js para detectar objetos usando el modelo MobileNet.
+Una aplicación web que reconoce objetos usando la cámara del dispositivo o una imagen subida, y te dice con qué porcentaje de confianza los detecta. Todo corre en el navegador: las fotos no se envían a ningún servidor.
 
-Permite trabajar de dos formas:
+![Vista previa de la aplicación](<Screenshot 2026-04-02 022625.png>)
 
-- `Camara en vivo`: activa la webcam y clasifica objetos en tiempo real.
-- `Subir imagen`: analiza una imagen local y muestra las clases detectadas.
+---
 
-Cada resultado incluye el porcentaje de confianza, por ejemplo:
+## Qué problema resuelve
+
+Saber qué hay frente a la cámara suele requerir servicios externos de visión por computadora: cargar imágenes a un servidor, esperar una respuesta, pagar por el procesamiento.
+
+Este proyecto evita todo eso. Con un modelo de clasificación que corre directamente en el dispositivo, responde a dos preguntas simples:
+
+- **¿Qué hay en esta imagen?** Subes un archivo, eliges "Detectar objetos" y obtienes las clases más probables.
+- **¿Qué hay en vivo?** Activas la webcam y el modelo clasifica lo que ve en tiempo real.
+
+Cada resultado incluye su porcentaje de confianza:
 
 - `Persona (98%)`
 - `Lapicero (87%)`
 - `Montaña (64%)`
 
-![alt text](<Screenshot 2026-04-02 022625.png>)
+Al ejecutarse localmente, funciona sin conexión una vez cargado, y como es una PWA puede instalarse en el equipo como una app más.
 
-Tambien funciona como PWA, por lo que puede instalarse y recibir actualizaciones mediante service worker en modo produccion.
+## Cómo funciona por dentro
 
-# Proyecto inspirado en 
+La app tiene un servicio central que se encarga de la parte de visión, y una interfaz que orquesta los dos modos de uso.
 
-Este proyecto toma como base el trabajo: https://github.com/domini-code/midudev-pwa
-- [Repositorio midudev-pwa](https://github.com/domini-code/midudev-pwa)  
-- Autor: **DOMINICODE** y **midudev**
+**El motor de detección**
 
+Cuando arranca, la app carga el modelo MobileNet (versión 2, ligera y precisa para clasificación general) sobre TensorFlow.js. Primero intenta usar la GPU vía WebGL para que las inferencias sean rápidas; si el dispositivo no la soporta, cae automáticamente a la CPU. El modelo se carga una sola vez y se reutiliza en toda la sesión, así la primera detección real es casi inmediata.
 
-# Ver demostración
+**El modo cámara**
 
-Puedes ver una demostración del proyecto en el siguiente video:
+Al activar la cámara, el navegador pide permiso y se configura el stream de video. Un bucle de inferencia toma cuadros continuamente y actualiza la lista de resultados en vivo. Dos detalles clave de ese bucle:
 
-[![Ver demo en YouTube](https://img.youtube.com/vi/Y5zaSOqqMcM/0.jpg)](https://youtu.be/Y5zaSOqqMcM)
+- Las inferencias nunca se solapan: mientras una clasificación está en curso, el siguiente cuadro espera. Así se evita acumular trabajo y que la app se quede lenta.
+- Al detener o cerrar la vista, se liberan los recursos de la cámara y se cancela el bucle; no quedan procesos en segundo plano.
 
-## Caracteristicas
+Si el usuario está en un celular, la cámara usa la trasera de forma preferente, que es la que da mejor vista del entorno.
 
-- Deteccion de objetos con `@tensorflow-models/mobilenet`
-- Inferencia en tiempo real desde webcam
-- Analisis de imagenes subidas por el usuario
-- Visualizacion de porcentaje de confianza
-- Interfaz responsive con Angular Material
-- Soporte PWA con service worker y aviso de nueva version
+**El modo imagen**
 
-## Tecnologias principales
+Seleccionar un archivo crea una vista previa local y habilita el botón de detección. La imagen se clasifica al vuelo y se muestran las coincidencias ordenadas por confianza, con una barra visual para leer el porcentaje de un vistazo. También se gestiona la memoria de las vistas previas temporales, liberándolas cuando dejan de usarse.
 
-- Angular 19
-- Angular Material
-- TensorFlow.js
-- MobileNet
-- Angular Service Worker
-- Karma + Jasmine
-- ESLint
+**La capa PWA**
+
+La app es instalable y, gracias al service worker, precarga el modelo de clasificación en producción. Eso significa que una vez visitada, la detección puede funcionar incluso sin conexión. Si se publica una nueva versión, un banner avisa al usuario para que la active con un clic.
+
+## Decisiones de diseño
+
+- **Todo en el navegador, sin servidor.** MobileNet es un modelo chico que corre bien en dispositivos comunes. Esto da privacidad (las imágenes no salen del dispositivo) y elimina costos de infraestructura.
+- **Carga del modelo de una sola vez.** Se carga al iniciar la app y se comparte entre ambos modos. Evita repetir descargas de pesos del modelo en cada uso.
+- **Interfaz reactiva y ligera.** La UI usa señales y estrategia de detección de cambios `OnPush`, así Angular solo repinta lo que realmente cambió durante el flujo de video, que es intensivo.
+- **Errores pensados para la persona.** Los mensajes de la cámara son específicos según el fallo: permiso denegado, cámara no encontrada o cámara en uso por otra app. No hay un "algo falló" genérico.
+- **Experiencia offline por diseño.** El service worker precachea hasta el modelo, no solo los archivos de la app.
+
+## Tecnologías
+
+- **Angular 19** — interfaz, señales y reactividad
+- **Angular Material** — componentes de UI
+- **TensorFlow.js** — inferencia en el navegador
+- **MobileNet v2** — modelo de clasificación de imágenes
+- **Angular Service Worker** — PWA, instalación y actualizaciones
 
 ## Requisitos
 
-Antes de ejecutar el proyecto, asegúrate de tener:
+- Node.js **20.x** o **22.x** LTS (también funciona con versiones recientes, pero se recomienda LTS para un entorno estable)
+- npm (viene con Node.js)
 
-- `Node.js` recomendado: version LTS `20.x` o `22.x`
-- `npm` incluido con Node.js
-
-Nota:
-
-- Durante las verificaciones se detecto `Node.js v25.8.1`, que funciona para compilar, pero es una version impar y no LTS. Para desarrollo normal se recomienda usar Node LTS.
-
-## Instalacion
-
-Desde la carpeta del proyecto:
+## Puesta en marcha
 
 ```bash
-npm install
+npm install      # instala dependencias
+npm start        # levanta el servidor de desarrollo
 ```
 
-## Como ejecutarlo
+Abre `http://localhost:4200`.
 
-La forma mas simple para desarrollo local es:
+Con la cámara: elige "Cámara en vivo", pulsa "Activar cámara" y acepta el permiso del navegador.
 
-```bash
-npm start
-```
+Con una imagen: elige "Subir imagen", selecciona un archivo y pulsa "Detectar objetos".
 
-Eso levanta el servidor de desarrollo de Angular.
+> La cámara requiere localhost o HTTPS para funcionar en la mayoría de navegadores.
 
-Luego abre:
+## Scripts
 
-```text
-http://localhost:4200
-```
+| Comando | Qué hace |
+| --- | --- |
+| `npm start` | Servidor de desarrollo con recarga automática |
+| `npm run build` | Build optimizado de producción en `dist/` |
+| `npm run lint` | ESLint sobre TypeScript y plantillas |
+| `npm test` | Pruebas unitarias con Karma + Jasmine |
 
-## Ejecucion paso a paso
+El service worker solo se activa en producción, así que para probar el comportamiento PWA hay que servir el build: `npx http-server -p 8082 -c-1 dist/angular-pwa/browser`.
 
-1. Abre una terminal en la carpeta del proyecto.
-2. Instala dependencias:
+## Inspiración
 
-```bash
-npm install
-```
+Proyecto inspirado en el trabajo de [DOMINICODE](https://github.com/domini-code) y [midudev](https://github.com/domini-code/midudev-pwa), que sirvió como punto de partida: [midudev-pwa](https://github.com/domini-code/midudev-pwa).
 
-3. Inicia el servidor:
+Puedes ver una demostración del resultado aquí:
 
-```bash
-npm start
-```
+[![Ver demo en YouTube](https://img.youtube.com/vi/Y5zaSOqqMcM/0.jpg)](https://youtu.be/Y5zaSOqqMcM)
 
-4. En el navegador entra a:
+## Verificación
 
-```text
-http://localhost:4200
-```
-
-5. Usa uno de estos modos:
-
-- `Camara en vivo`: pulsa `Activar camara`, acepta el permiso del navegador y espera los resultados.
-- `Subir imagen`: selecciona una imagen y pulsa `Detectar objetos`.
-
-## Uso de la aplicacion
-
-### Modo camara
-
-1. Selecciona `Camara en vivo`.
-2. Pulsa `Activar camara`.
-3. Acepta el permiso del navegador.
-4. Observa la lista de predicciones que se actualiza automaticamente.
-5. Si quieres detener la captura, pulsa `Detener camara`.
-
-### Modo imagen
-
-1. Selecciona `Subir imagen`.
-2. Pulsa `Seleccionar imagen`.
-3. Elige un archivo local.
-4. Pulsa `Detectar objetos`.
-5. Revisa las clases detectadas y su confianza.
-
-## Scripts disponibles
-
-### Desarrollo
-
-```bash
-npm start
-```
-
-Inicia el servidor de desarrollo con recarga automatica.
-
-### Build de produccion
-
-```bash
-npm run build
-```
-
-Genera la aplicacion optimizada en:
-
-```text
-dist/angular-pwa
-```
-
-### Lint
-
-```bash
-npm run lint
-```
-
-Ejecuta las reglas de ESLint sobre TypeScript y plantillas Angular.
-
-### Tests
-
-```bash
-npm run test -- --watch=false --browsers=ChromeHeadless
-```
-
-Ejecuta las pruebas unitarias una sola vez en modo headless.
-
-## Ejecutarlo como PWA en local
-
-Para probar el service worker y el comportamiento PWA necesitas servir el build de produccion.
-
-1. Genera el build:
-
-```bash
-npm run build
-```
-
-2. **Sirve la carpeta compilada:**
-
-```bash
-npx http-server -p 8082 -c-1 dist/angular-pwa/browser
-```
-
-3. Abre:
-
-```text
-http://localhost:8080
-```
-
-Notas:
-
-- El service worker solo se activa en produccion.
-- La instalacion PWA y varios flujos relacionados con camara funcionan mejor en `localhost` o en `HTTPS`.
-
-## Estructura del proyecto
-
-```text
-src/
-  app/
-    components/
-      shared/
-        check-update/
-        header/
-    pages/
-      object-detection/
-        models/
-        prediction-list/
-        upload-card/
-        object-detection.component.*
-        object-detection.service.ts
-    app.component.*
-    app.config.ts
-    app.routes.ts
-  styles.scss
-public/
-  manifest.webmanifest
-  icons/
-```
-
-## Arquitectura resumida
-
-### `ObjectDetectionService`
-
-Se encarga de:
-
-- cargar el modelo MobileNet
-- seleccionar backend de TensorFlow.js
-- exponer estados como carga del modelo e inferencia
-- ejecutar `classify(...)` sobre imagen, video o canvas
-
-### `ObjectDetectionComponent`
-
-Controla:
-
-- el modo activo: camara o imagen
-- el permiso y ciclo de vida de la webcam
-- la vista previa del video o de la imagen
-- el bucle de inferencia en tiempo real con `requestAnimationFrame`
-- la limpieza del `MediaStream` y de las URLs temporales
-
-### `PredictionListComponent`
-
-Renderiza:
-
-- las clases detectadas
-- el porcentaje de confianza
-- una barra visual para la confianza
-- el estado vacio o el estado en vivo
-
-### `CheckUpdateComponent`
-
-Muestra un banner cuando el service worker detecta una nueva version disponible.
-
-## Flujo de deteccion
-
-### Cuando usas imagen
-
-1. El usuario selecciona un archivo.
-2. Se crea una URL temporal para previsualizarlo.
-3. Se carga la imagen en memoria.
-4. MobileNet clasifica la imagen.
-5. Se muestran las predicciones con porcentaje.
-
-### Cuando usas webcam
-
-1. El navegador solicita permiso para acceder a la camara.
-2. Se crea un `MediaStream`.
-3. El video se asigna al elemento `<video>`.
-4. Se ejecuta un bucle de inferencia en vivo.
-5. La lista de resultados se actualiza continuamente.
-
-## Consideraciones sobre la webcam
-
-- La camara requiere permiso del navegador.
-- Si no funciona, revisa que no este bloqueada por el navegador o por otro programa.
-- Si otra aplicacion esta usando la webcam, el navegador puede devolver un error.
-- En muchos navegadores la camara solo funciona correctamente en `localhost` o `HTTPS`.
-
-## Solucion de problemas
-
-### La webcam no abre
-
-Revisa lo siguiente:
-
-- aceptaste el permiso del navegador
-- no hay otra aplicacion usando la camara
-- estas en `http://localhost` o en `https://`
-
-### La primera carga tarda un poco
-
-Es normal. TensorFlow.js y MobileNet deben cargarse antes de la primera inferencia.
-
-### La PWA no se instala o no actualiza
-
-Comprueba que estas sirviendo el build de produccion y no el servidor de desarrollo.
-
-### Hay advertencias por la version de Node
-
-Usa Node `20.x` o `22.x` LTS para evitar advertencias y tener un entorno mas estable.
-
-## Verificacion realizada
-
-En este repositorio se verifico correctamente:
-
-- `npm run build`
-- `npm run lint`
-- `npm run test -- --watch=false --browsers=ChromeHeadless`
-
-## Comandos rapidos
-
-Instalar dependencias:
-
-```bash
-npm install
-```
-
-Ejecutar en desarrollo:
-
-```bash
-npm start
-```
-
-Compilar:
-
-```bash
-npm run build
-```
-
-Lint:
-
-```bash
-npm run lint
-```
-
-Tests:
-
-```bash
-npm run test -- --watch=false --browsers=ChromeHeadless
-```
+El repositorio se verificó correctamente con `npm run build`, `npm run lint` y las pruebas unitarias en modo headless.
