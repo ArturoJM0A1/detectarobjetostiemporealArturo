@@ -1,6 +1,6 @@
 {
-  "name": "Detector de Objetos PWA",
-  "short_name": "Detector AI",
+  "name": "Praevidor",
+  "short_name": "Praevidor",
   "theme_color": "#05070f",
   "background_color": "#05070f",
   "display": "standalone",

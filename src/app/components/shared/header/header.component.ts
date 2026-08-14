@@ -7,9 +7,6 @@ import { MatIconModule } from '@angular/material/icon';
   template: `
     <header class="app-header">
       <div class="brand">
-        <span class="brand-mark" aria-hidden="true">
-          <mat-icon>radar</mat-icon>
-        </span>
         <h1>{{ title() }}</h1>
       </div>
 
@@ -48,18 +45,6 @@ import { MatIconModule } from '@angular/material/icon';
         align-items: center;
         gap: 0.8rem;
         min-width: 0;
-      }
-
-      .brand-mark {
-        display: grid;
-        place-items: center;
-        flex: 0 0 auto;
-        width: 2.5rem;
-        height: 2.5rem;
-        border-radius: 14px;
-        background: var(--grad-ai);
-        box-shadow: var(--shadow-glow);
-        color: #ffffff;
       }
 
       h1 {
@@ -126,5 +111,5 @@ import { MatIconModule } from '@angular/material/icon';
   ],
 })
 export class HeaderComponent {
-  title = input<string>('Detector de Objetos PWA');
+  title = input<string>('Praevidor');
 }

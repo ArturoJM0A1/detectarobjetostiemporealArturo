@@ -1,4 +1,4 @@
-# Detector de Objetos PWA en tiempo real
+# Praevidor en tiempo real
 
 Una aplicación web que reconoce objetos usando la cámara del dispositivo o una imagen subida, y te dice con qué porcentaje de confianza los detecta. Todo corre en el navegador: las fotos no se envían a ningún servidor.
 
