@@ -29,6 +29,7 @@ type IntroStep = 'welcome' | 'instructions';
                 Continuar
                 <mat-icon>arrow_forward</mat-icon>
               </button>
+              <p class="welcome-credit">By: Arturo Juárez Monroy</p>
             }
 
             @case ('instructions') {
@@ -116,7 +117,7 @@ type IntroStep = 'welcome' | 'instructions';
         height: 260px;
         object-fit: contain;
         border-radius: var(--radius-md);
-        filter: brightness(1.4) saturate(1.05);
+        filter: brightness(1.7) saturate(1.1);
         animation: float 3.5s ease-in-out infinite;
         margin-bottom: -0.5rem;
         padding-bottom: 0;
@@ -141,6 +142,13 @@ type IntroStep = 'welcome' | 'instructions';
         min-width: 180px;
         border-radius: var(--radius-pill);
         font-weight: 600;
+      }
+
+      .welcome-credit {
+        margin: 0.3rem 0 0;
+        color: #98a1c6;
+        font-size: 0.8rem;
+        letter-spacing: 0.03em;
       }
 
       .instructions-list {
